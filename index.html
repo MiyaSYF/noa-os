@@ -43,6 +43,7 @@
   .icon .lbl{margin-top:6px;font-size:12px;color:#1f7d97;font-weight:600;background:rgba(255,255,255,.9);border:1px solid var(--winline);backdrop-filter:blur(4px);border-radius:999px;padding:2px 8px;display:inline-block}
   /* windows */
   .win{position:absolute;min-width:300px;width:min(480px,92vw);background:var(--win);border:2px solid var(--main);border-radius:12px;box-shadow:0 12px 32px -8px rgba(43,184,212,.35);overflow:hidden}
+  .win.wide{width:min(720px,92vw)}
   .win .bar{background:#fff;border-bottom:1px dashed var(--winline);padding:7px 12px;display:flex;align-items:center;justify-content:space-between;cursor:grab;touch-action:none}
   .win .bar .t{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--main)}
   .win .bar .t .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--main);margin-right:7px;vertical-align:1px;font-style:normal}
@@ -107,10 +108,10 @@ boot.onclick=()=>boot.classList.add("hidden");
 /* ---------- window manager ---------- */
 const desk=document.getElementById("desk"); let z=10,off=0,pc=0;
 const PALETTE=["var(--p-pink)","var(--p-gold)","var(--p-green)","var(--p-lav)"];
-function makeWin(title,html){
+function makeWin(title,html,wide){
   const dup=[...desk.querySelectorAll(".win")].find(x=>x.dataset.t===title);
   if(dup){ dup.style.zIndex=++z; return dup; }
-  const w=document.createElement("div"); w.className="win"; w.dataset.t=title;
+  const w=document.createElement("div"); w.className="win"+(wide?" wide":""); w.dataset.t=title;
   w.style.left=(130+off*26)+"px"; w.style.top=(30+off*24)+"px"; off=(off+1)%8; w.style.zIndex=++z;
   w.innerHTML=`<div class="bar"><span class="t"><i class="dot"></i>${title}</span><button class="x">×</button></div><div class="bd">${html}</div>`;
   desk.appendChild(w);
@@ -134,18 +135,26 @@ function openFolder(key){
   w.querySelectorAll(".file").forEach(el=>el.onclick=async()=>{
     const file=FS[el.dataset.k].files[el.dataset.i];
     if(file.src){
-      const win=makeWin("📄 "+file.n,'<p style="color:var(--dim)">loading…</p>');
+      const win=makeWin("📄 "+file.n,'<p style="color:var(--dim)">loading…</p>',true);
       try{
         const r=await fetch(file.src); if(!r.ok)throw 0;
-        win.querySelector(".bd").innerHTML=`<div class="doc">${await r.text()}</div>`;
+        let html=await r.text();
+        /* 窗口标题 = 文件开头的 <t>…</t>;显示前从正文里拿掉 */
+        const m=html.match(/<t>([\s\S]*?)<\/t>/);
+        if(m){
+          html=html.replace(m[0],"");
+          const dot=win.querySelector(".bar .dot").style.background;
+          win.querySelector(".bar .t").innerHTML=`<i class="dot" style="background:${dot}"></i>📄 ${m[1].trim()}`;
+        }
+        win.querySelector(".bd").innerHTML=`<div class="doc">${html}</div>`;
       }catch(e){ win.querySelector(".bd").innerHTML='<p style="color:var(--dim)">読み込み失敗。ファイルある?</p>'; }
-    } else makeWin("📄 "+file.n,file.b);
+    } else makeWin("📄 "+(file.t||file.n),file.b,true);
   });
 }
 function openTrash(){
   const rows=TRASH.map((x,i)=>`<div class="file" data-i="${i}"><span class="del">📄 ${x.n}</span></div>`).join("");
   const w=makeWin("🗑 ゴミ箱",rows||"<p>空。</p>");
-  w.querySelectorAll(".file").forEach(el=>el.onclick=()=>makeWin("📄 "+TRASH[el.dataset.i].n+" (削除済み)",TRASH[el.dataset.i].b));
+  w.querySelectorAll(".file").forEach(el=>el.onclick=()=>makeWin("📄 "+TRASH[el.dataset.i].n+" (削除済み)",TRASH[el.dataset.i].b,true));
 }
 /* ---------- desktop icons ---------- */
 const folderSvg = '<div class="gfx folder"><svg viewBox="0 0 24 24" width="36" height="36" stroke="#2bb8d4" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><polyline points="10 11 12 13 10 15"></polyline><line x1="14" y1="15" x2="16" y2="15"></line></svg></div>';

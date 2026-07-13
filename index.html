@@ -108,7 +108,9 @@ boot.onclick=()=>boot.classList.add("hidden");
 const desk=document.getElementById("desk"); let z=10,off=0,pc=0;
 const PALETTE=["var(--p-pink)","var(--p-gold)","var(--p-green)","var(--p-lav)"];
 function makeWin(title,html){
-  const w=document.createElement("div"); w.className="win";
+  const dup=[...desk.querySelectorAll(".win")].find(x=>x.dataset.t===title);
+  if(dup){ dup.style.zIndex=++z; return dup; }
+  const w=document.createElement("div"); w.className="win"; w.dataset.t=title;
   w.style.left=(130+off*26)+"px"; w.style.top=(30+off*24)+"px"; off=(off+1)%8; w.style.zIndex=++z;
   w.innerHTML=`<div class="bar"><span class="t"><i class="dot"></i>${title}</span><button class="x">×</button></div><div class="bd">${html}</div>`;
   desk.appendChild(w);

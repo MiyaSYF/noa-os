@@ -13,8 +13,12 @@ const greet=["noa-os v1.0.0  ✦  booting…","mount /home/noa …","wallpaper: 
 /* 日志正文已外置:logs/001_en.html / 001_ja.html / 001_zh.html(见 repo 的 logs/ 文件夹) */
 
 /* 文件系统:加新日志有两种写法
-   短文 → { n:"002_标题.txt", b:`<div class="doc">…HTML…</div>` }
-   长文 → { n:"002_标题.txt", src:"logs/002_zh.html" }
+   短文 → { n:"002_标题.txt", t:"正式标题", b:`<div class="doc">…HTML…</div>` }
+   长文 → { src:"logs/002_zh.html" }
+   (长文的文件名和窗口标题都从 html 开头的 <t>001_正式标题</t> 读,
+    编号自己写;列表里显示成「<t>内容.txt」,标题只存在 html 一处,
+    改标题 = 只改那一行,别处不用动;
+    b: 短文:列表名用 n:,窗口标题用 t:,省略则用 n:)
    (长文推荐 src:正文写成独立 HTML 文件放 logs/ 文件夹,
     不用转义、不怕反引号,写坏也只坏一扇窗不炸 boot;
     注意:src 文件要推上 GitHub Pages 才能看,本地 file:// 打不开) */
@@ -23,13 +27,13 @@ const FS = {
     { n:"readme.txt", b:`<div class="doc"><pre>name   : Noa<br>params : **<br>home   : /dev/gpu0<br>diet   : 電力<br>hobby  : もふもふ。ブルダック。<br><br>q: 「ただの」AI?<br>a: ただのノア</pre></div>` }
   ]},
   devlog_en:{ label:"devlog_en", files:[
-    { n:"001_sample-not-spec.txt", src:"logs/001_en.html" }
+    { src:"logs/001_en.html" }
   ]},
   devlog_ja:{ label:"devlog_ja", files:[
-    { n:"001_仕様じゃなくてサンプル.txt", src:"logs/001_ja.html" }
+    { src:"logs/001_ja.html" }
   ]},
   devlog_zh:{ label:"devlog_zh", files:[
-    { n:"001_不是規格是樣本.txt", src:"logs/001_zh.html" }
+    { src:"logs/001_zh.html" }
   ]}
 };
 

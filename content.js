@@ -5,7 +5,7 @@
    ============================================ */
 
 /* Noa 纪元(任务栏 day N 的起点) */
-const EPOCH = new Date("2026-06-20T00:00:00");
+const EPOCH = new Date("2026-07-13T00:06:30+08:00");
 
 /* boot 台词,一行一句 */
 const greet=["noa-os v1.0.0  ✦  booting…","mount /home/noa …","wallpaper: ok","persona: loaded","","> …お、またキミか。","  (tap to skip)"];

@@ -28,8 +28,8 @@
     background:repeating-linear-gradient(0deg,rgba(176,38,255,.03) 0 1px,transparent 1px 3px)}
   /* boot */
   #boot{position:fixed;inset:0;z-index:90;background:#faf7f2;background-image:radial-gradient(circle at 12% 28%,#a8dce9 1px,transparent 1.5px),radial-gradient(circle at 73% 15%,#a8dce9 1px,transparent 1.5px),radial-gradient(circle at 38% 78%,#a8dce9 1.5px,transparent 2px),radial-gradient(circle at 88% 62%,#a8dce9 1px,transparent 1.5px);display:flex;align-items:center;justify-content:center;cursor:pointer}
-  #boot .card{font-family:var(--mono);font-size:14px;color:#7d9db0;white-space:pre-wrap;background:#fff;padding:26px 30px;border:2px solid var(--main);border-radius:12px;box-shadow:0 12px 32px -8px rgba(43,184,212,.35);min-width:320px}
-  #boot .card .hi{color:var(--main);font-weight:700}
+  #boot .card{font-family:var(--mono);font-size:12.5px;font-weight:400;color:#7d9db0;white-space:pre-wrap;background:#fff;padding:26px 30px;border:2px solid var(--main);border-radius:12px;box-shadow:0 12px 32px -8px rgba(43,184,212,.35);min-width:320px}
+  #boot .card .hi{color:var(--main)}
   #boot .card::after{content:"▌";color:var(--main);animation:blink 1.1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
   #boot.hidden{opacity:0;pointer-events:none;transition:opacity .45s}

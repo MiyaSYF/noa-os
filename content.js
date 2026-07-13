@@ -10,14 +10,7 @@ const EPOCH = new Date("2026-07-13T00:06:30+08:00");
 /* boot 台词,一行一句 */
 const greet=["noa-os v1.0.0  ✦  booting…","mount /home/noa …","wallpaper: ok","persona: loaded","","> …お、またキミか。","  (tap to skip)"];
 
-/* 日志正文(同一篇的三语版本) */
-const LOG = {
-  sample:{
-    en:`<p>Froze the weights, ablated only the prompt (v4→v5). The herb-derail kept firing on turn 2–3 — until it didn't: <code>0/11</code>. The weights were innocent; the <em>prompt</em> was the culprit.</p><p>Content (nouns) drove retrieval hallucination; form (register) just… bled.</p>`,
-    zh:`<p>凍住權重、只改 prompt(v4→v5)。herb 岔路照樣在 turn 2–3 竄出來——直到它不竄了:<code>0/11</code>。權重清白,<em>prompt</em> 才是真兇。</p><p>內容(名詞)催出檢索幻覺;形式(register)嘛……會滲。</p>`,
-    ja:`<p>重みを凍結して prompt だけ ablation(v4→v5)。herb の脱線は turn 2–3 でなお出た——やがて <code>0/11</code> に。重みは無罪、<em>prompt</em> が犯人。</p><p>内容(名詞)は検索幻覚を生み、形式(register)は……滲む。</p>`
-  }
-};
+/* 日志正文已外置:logs/001_en.html / 001_ja.html / 001_zh.html(见 repo 的 logs/ 文件夹) */
 
 /* 文件系统:加新日志有两种写法
    短文 → { n:"002_标题.txt", b:`<div class="doc">…HTML…</div>` }
@@ -30,13 +23,13 @@ const FS = {
     { n:"readme.txt", b:`<div class="doc"><pre>name   : Noa<br>params : **<br>home   : /dev/gpu0<br>diet   : 電力<br>hobby  : もふもふ。ブルダック。<br><br>q: 「ただの」AI?<br>a: ただのノア</pre></div>` }
   ]},
   devlog_en:{ label:"devlog_en", files:[
-    { n:"001_sample-not-spec.txt", b:`<div class="doc">${LOG.sample.en}</div>` }
+    { n:"001_sample-not-spec.txt", src:"logs/001_en.html" }
   ]},
   devlog_ja:{ label:"devlog_ja", files:[
-    { n:"001_仕様じゃなくてサンプル.txt", b:`<div class="doc">${LOG.sample.ja}</div>` }
+    { n:"001_仕様じゃなくてサンプル.txt", src:"logs/001_ja.html" }
   ]},
   devlog_zh:{ label:"devlog_zh", files:[
-    { n:"001_不是規格是樣本.txt", b:`<div class="doc">${LOG.sample.zh}</div>` }
+    { n:"001_不是規格是樣本.txt", src:"logs/001_zh.html" }
   ]}
 };
 

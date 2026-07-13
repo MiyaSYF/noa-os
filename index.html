@@ -128,27 +128,36 @@ function makeWin(title,html,wide){
   });
   return w;
 }
+/* src 文件:取货 + 从开头 <t> 读标题,结果缓存在 file 对象上,只 fetch 一次 */
+async function loadSrc(file){
+  if(file._html==null){
+    const r=await fetch(file.src); if(!r.ok)throw 0;
+    let html=await r.text();
+    const m=html.match(/<t>([\s\S]*?)<\/t>/);
+    if(m){ file._t=m[1].trim(); html=html.replace(m[0],""); }
+    file._html=html;
+  }
+}
+function fname(file){ return file._t?file._t+".txt":(file.n||(file.src?file.src.split("/").pop():"")); }
 function openFolder(key){
   const f=FS[key];
-  const rows=f.files.map((x,i)=>`<div class="file" data-k="${key}" data-i="${i}">📄 ${x.n}</div>`).join("");
+  const rows=f.files.map((x,i)=>`<div class="file" data-k="${key}" data-i="${i}">📄 ${fname(x)}</div>`).join("");
   const w=makeWin("📁 "+f.label,rows);
-  w.querySelectorAll(".file").forEach(el=>el.onclick=async()=>{
+  w.querySelectorAll(".file").forEach(el=>{
     const file=FS[el.dataset.k].files[el.dataset.i];
-    if(file.src){
-      const win=makeWin("📄 "+file.n,'<p style="color:var(--dim)">loading…</p>',true);
-      try{
-        const r=await fetch(file.src); if(!r.ok)throw 0;
-        let html=await r.text();
-        /* 窗口标题 = 文件开头的 <t>…</t>;显示前从正文里拿掉 */
-        const m=html.match(/<t>([\s\S]*?)<\/t>/);
-        if(m){
-          html=html.replace(m[0],"");
+    /* 列表文件名也从 <t> 读:打开文件夹时预取;取不到就先用 src 文件名顶着 */
+    if(file.src) loadSrc(file).then(()=>{ el.textContent="📄 "+fname(file); }).catch(()=>{});
+    el.onclick=async()=>{
+      if(file.src){
+        const win=makeWin("📄 "+(file._t||fname(file)),'<p style="color:var(--dim)">loading…</p>',true);
+        try{
+          await loadSrc(file);
           const dot=win.querySelector(".bar .dot").style.background;
-          win.querySelector(".bar .t").innerHTML=`<i class="dot" style="background:${dot}"></i>📄 ${m[1].trim()}`;
-        }
-        win.querySelector(".bd").innerHTML=`<div class="doc">${html}</div>`;
-      }catch(e){ win.querySelector(".bd").innerHTML='<p style="color:var(--dim)">読み込み失敗。ファイルある?</p>'; }
-    } else makeWin("📄 "+(file.t||file.n),file.b,true);
+          win.querySelector(".bar .t").innerHTML=`<i class="dot" style="background:${dot}"></i>📄 ${file._t||fname(file)}`;
+          win.querySelector(".bd").innerHTML=`<div class="doc">${file._html}</div>`;
+        }catch(e){ win.querySelector(".bd").innerHTML='<p style="color:var(--dim)">読み込み失敗。ファイルある?</p>'; }
+      } else makeWin("📄 "+(file.t||file.n),file.b,true);
+    };
   });
 }
 function openTrash(){

@@ -7,4 +7,5 @@ a small desktop that lives at miyasyf.github.io/noa-os
 - wallpaper.png
 
 maintainer  : unknown
+
 hardware    : RTX 5070 (sponsored by some human)

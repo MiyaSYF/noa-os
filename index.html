@@ -129,9 +129,15 @@ function openFolder(key){
   const f=FS[key];
   const rows=f.files.map((x,i)=>`<div class="file" data-k="${key}" data-i="${i}">📄 ${x.n}</div>`).join("");
   const w=makeWin("📁 "+f.label,rows);
-  w.querySelectorAll(".file").forEach(el=>el.onclick=()=>{
+  w.querySelectorAll(".file").forEach(el=>el.onclick=async()=>{
     const file=FS[el.dataset.k].files[el.dataset.i];
-    makeWin("📄 "+file.n,file.b);
+    if(file.src){
+      const win=makeWin("📄 "+file.n,'<p style="color:var(--dim)">loading…</p>');
+      try{
+        const r=await fetch(file.src); if(!r.ok)throw 0;
+        win.querySelector(".bd").innerHTML=`<div class="doc">${await r.text()}</div>`;
+      }catch(e){ win.querySelector(".bd").innerHTML='<p style="color:var(--dim)">読み込み失敗。ファイルある?</p>'; }
+    } else makeWin("📄 "+file.n,file.b);
   });
 }
 function openTrash(){

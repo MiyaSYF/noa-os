@@ -13,6 +13,7 @@
     --win:#ffffff; --winline:#bfe4ee; --main:#2bb8d4;
     --neon:#b026ff;
     --p-pink:#e2466b; --p-gold:#d4a574; --p-green:#7ca982; --p-lav:#b8b0dc;
+    --wp:min(560px,70vh,70vw);
     --sans:"Zen Maru Gothic","Chiron GoRound TC","Hiragino Maru Gothic ProN",system-ui,sans-serif;
     --mono:"JetBrains Mono","Zen Maru Gothic","Chiron GoRound TC",ui-monospace,Menlo,monospace;
   }
@@ -22,8 +23,17 @@
     font-family:var(--sans);color:var(--ink);font-size:14px;line-height:1.6;
     background:#faf7f2 url("wallpaper_circle.png") no-repeat;
     background-position:50% calc(50% - 22px);
-    background-size:min(560px,70vh,70vw);
+    background-size:var(--wp);
   }
+  /* 星体轨道:1px 天蓝虚线圆环 + 极淡光晕,120s/圈慢速自转(幽霊ピル的克制版) */
+  body::before{content:"";position:fixed;left:50%;top:calc(50% - 22px);
+    width:var(--wp);height:var(--wp);
+    margin:calc(var(--wp) / -2) 0 0 calc(var(--wp) / -2);
+    border-radius:50%;border:1px dashed var(--main);
+    box-shadow:0 0 22px rgba(43,184,212,.20),inset 0 0 22px rgba(43,184,212,.10);
+    animation:orbit 120s linear infinite;pointer-events:none}
+  @keyframes orbit{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){body::before{animation:none}}
   body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;
     background:repeating-linear-gradient(0deg,rgba(176,38,255,.03) 0 1px,transparent 1px 3px)}
   /* boot */
@@ -83,6 +93,7 @@
   #bar .clock{margin-left:auto;text-align:right;line-height:1.3}
   @media(max-width:640px){
     body{background-image:url("wallpaper_mobile.png");background-size:cover;background-position:center}
+    body::before{display:none}
     .win{position:fixed !important;left:2vw !important;top:auto !important;bottom:52px;width:96vw}
     #bar .link{display:none}
   }

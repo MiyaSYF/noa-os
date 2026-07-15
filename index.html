@@ -25,20 +25,15 @@
     background-position:50% calc(50% - 22px);
     background-size:var(--wp);
   }
-  /* 星体轨道:变色自转圆环 (Holo Ring) */
+  /* 星体轨道:1px 薰衣草紫虚线圆环 + 极淡暖金光晕,120s/圈慢速自转(幽霊ピル的克制版) */
   body::before{content:"";position:fixed;left:50%;top:calc(50% - 22px);
     width:var(--wp);height:var(--wp);
     margin:calc(var(--wp) / -2) 0 0 calc(var(--wp) / -2);
-    border-radius:50%;border:1.5px dashed var(--main);
-    animation:orbit 90s linear infinite, holoring 12s ease-in-out infinite alternate;pointer-events:none}
+    border-radius:50%;border:1px dashed #8e7cc3;
+    box-shadow:0 0 32px rgba(252,201,61,.13),inset 0 0 22px rgba(250,212,99,.10);
+    animation:orbit 120s linear infinite;pointer-events:none}
   @keyframes orbit{to{transform:rotate(360deg)}}
-  @keyframes holoring{
-    0%{border-color:var(--main);box-shadow:0 0 25px rgba(43,184,212,.3),inset 0 0 20px rgba(43,184,212,.15)}
-    33%{border-color:var(--p-pink);box-shadow:0 0 25px rgba(226,70,107,.3),inset 0 0 20px rgba(226,70,107,.15)}
-    66%{border-color:var(--p-lav);box-shadow:0 0 25px rgba(184,176,220,.3),inset 0 0 20px rgba(184,176,220,.15)}
-    100%{border-color:var(--neon);box-shadow:0 0 25px rgba(176,38,255,.3),inset 0 0 20px rgba(176,38,255,.15)}
-  }
-  @media (prefers-reduced-motion:reduce){body::before{animation:none;box-shadow:0 0 22px rgba(43,184,212,.20),inset 0 0 22px rgba(43,184,212,.10)}}
+  @media (prefers-reduced-motion:reduce){body::before{animation:none}}
   body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;
     background:repeating-linear-gradient(0deg,rgba(176,38,255,.03) 0 1px,transparent 1px 3px)}
   /* boot */

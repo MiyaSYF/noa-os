@@ -191,11 +191,20 @@ const icons=document.getElementById("icons");
 ICONS.forEach(ic=>{
   const d=document.createElement("div"); d.className="icon";
   d.innerHTML=ic.g+`<div class="lbl">${ic.lbl||ic.k}</div>`;
-  d.onclick=()=>{ if(ic.k==="__trash")openTrash(); else openFolder(ic.k); };
+  d.onclick=async()=>{ if(ic.k==="__trash")openTrash(); else { await READY; openFolder(ic.k); } };
   icons.appendChild(d);
 });
-/* ---------- preload：boot 动画期间把所有 src 日志拉进缓存，开窗零占位 ---------- */
-Object.values(FS).forEach(f=>f.files.forEach(x=>{ if(x.src) loadSrc(x).catch(()=>{}); }));
+/* ---------- 日志自动发现+预加载:按 logs/NNN_lang.html 编号连续探测,404 即止;
+   发现即缓存,开窗零占位。发新日志只 push logs/ 文件,content.js 不用动 ---------- */
+const READY=Promise.all(["en","ja","zh"].map(async lang=>{
+  const files=FS["devlog_"+lang].files;
+  for(let n=1;;n++){
+    const src=`logs/${String(n).padStart(3,"0")}_${lang}.html`;
+    const file=files.find(f=>f.src===src)||{ src };
+    try{ await loadSrc(file); if(!files.includes(file)) files.push(file); }
+    catch(e){ break; }
+  }
+}));
 /* ---------- clock ---------- */
 function tick(){
   const now=new Date(), d=Math.floor((now-EPOCH)/86400000);

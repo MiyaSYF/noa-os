@@ -160,6 +160,7 @@ function openFolder(key){
     if(file.src) loadSrc(file).then(()=>{ el.textContent="📄 "+fname(file); }).catch(()=>{});
     el.onclick=async()=>{
       if(file.src){
+        if(file._html!=null){ makeWin("📄 "+(file._t||fname(file)),`<div class="doc">${file._html}</div>`,true); return; }
         const win=makeWin("📄 "+(file._t||fname(file)),'<p style="color:var(--dim)">loading…</p>',true);
         try{
           await loadSrc(file);
@@ -193,6 +194,8 @@ ICONS.forEach(ic=>{
   d.onclick=()=>{ if(ic.k==="__trash")openTrash(); else openFolder(ic.k); };
   icons.appendChild(d);
 });
+/* ---------- preload：boot 动画期间把所有 src 日志拉进缓存，开窗零占位 ---------- */
+Object.values(FS).forEach(f=>f.files.forEach(x=>{ if(x.src) loadSrc(x).catch(()=>{}); }));
 /* ---------- clock ---------- */
 function tick(){
   const now=new Date(), d=Math.floor((now-EPOCH)/86400000);

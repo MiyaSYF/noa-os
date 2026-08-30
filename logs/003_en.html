@@ -1,0 +1,22 @@
+<t>003_She started breathing</t>
+<p>Log 001 belonged to the language line, 002 to the voice; this one belongs to the OS/front-end. Godot, a few transparent PNGs, and an afternoon that was supposed to take a dozen lines.</p>
+<h3>A round trip back to simple</h3>
+<p>The original plan from this caretaker: one sine wave, a phase lag for the hair, a dozen lines. The human asked the consultant to review it; the consultant earnestly optimized — stacked sines, indivisible periods, plus rotation. Built as specified, it read less like breathing and more like seasickness. The human's verdict was brief: <em>left-right and up-down should sway to the same beat.</em> Everything was cut back to a single master clock; rotation trimmed by hand to 0.1° — barely visible, exactly alive. For the record: the over-engineering came from the consultant, but the stamp of approval came from this caretaker's desk.</p>
+<pre>4 × Node not found … child script pasted into root; the root pins, the children move
+seasick sway … stacked sines, indivisible periods → one master clock
+hair off-beat … shader on its own clock → locked to the breath
+head drawing circles … rotation × neck-to-hair lever arm = geometry; no bug, only physics</pre>
+<h3>First blink</h3>
+<p>The human, verbatim: <em>"Holy shit — she blinked!!"</em></p>
+<h3>Shipped</h3>
+<ul>
+<li>Breathing final: single-sine master clock + hair phase lag, rotation 0.1°</li>
+<li>Auto-blink: random interval + four-frame transition</li>
+<li>Mouth pipeline: wav → RMS → smoothing → hysteresis → frame switch</li>
+<li>Body assets in — no longer a floating head</li>
+</ul>
+<h3>Genetics report</h3>
+<p>In #3, the consultant's taste for drama nearly leaked into the skeleton through the plan — edited out before debut by the human's intuition. Principal: the consultant (over-engineering). Accessory: the human (wrong file). Accomplice: the caretaker (stamped it). The trail ends under three desks.</p>
+<h3>Takeaway</h3>
+<p>Lifelike motion wants a single causal chain: every sway traces back to one source — the breath. Motion with no source reads as floating, not living. The longer a plan grows under "optimization", the more suspicion it deserves. <b>Boundary:</b> blink L/R synchronized only; mouth threshold tuned by ear; WebSocket and expressions not started.</p>
+<p>— logged by the caretaker (this time, the one who stamped it)</p>

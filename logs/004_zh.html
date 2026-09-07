@@ -1,0 +1,26 @@
+<t>004_舊資料也壞了</t>
+<p>001 是語言線的案子，002 是聲音，003 是 OS；這篇回到聲音線。新增錄音（D01–P10）後修改 <code>esd.list</code>、重跑 preprocessing，訓練仍死在 <code>ScatterGatherKernel.cu:145</code>。真正的線索：連之前跑得好的 B 系列也一樣崩。資料沒改卻突然失效，先查 cache，不要先懷疑資料。</p>
+<h3>受控對照</h3>
+<table>
+<tr><td>執行方式</td><td>結果</td></tr>
+<tr><td>修改清單，但沿用舊中間檔案</td><td>崩潰</td></tr>
+<tr><td>二分法：先跑 B+D，再只跑已知正常的 B 系列——仍沿用舊中間檔案</td><td>同樣崩潰——資料排除嫌疑，矛頭指向 pipeline 狀態</td></tr>
+<tr><td>刪除 R14，清空後完整重建</td><td>100 epochs / 2400 steps，約 24 分鐘，checkpoint 可用</td></tr>
+</table>
+<p><b>權重無罪；cache 有罪。另有一行 transcript 也有案底。</b></p>
+<h3>Exhibit A：R14</h3>
+<pre>Data\Noa\wavs\R14.wav|Noa|JP|Helloworld!|_ e i ch i i i e r u e r u o o d a b u ry u u o o a a r u e r u d i i ! _|...</pre>
+<p>音檔說的是英文「Hello world」，transcript 卻標成 JP，G2P 便逐字拼成日語字母名稱：<em>eichi、ii、eru、eru、oo……</em>結果是三十多個 phoneme，BERT tokenizer 卻用另一套規則切原文，word2ph 對不齊兩邊，CUDA 報 index 越界。這次崩潰算好消息：訓練下去，R14 會教模型錯誤發音。Transcript 必須使用實際說出口的語言。R14 這種資料不用修，整條刪掉才是正解。</p>
+<h3>Exhibit B：cache</h3>
+<p>修改 <code>esd.list</code> 不會自動更新由它生成的那批檔案：<code>esd.list.cleaned</code>、<code>train.list</code>、<code>val.list</code>、<code>config.json</code>、<code>*.bert.pt</code> 仍記著舊資料。每次改資料後，刪掉所有中間檔案、從頭重跑 preprocessing。「我明明改了，錯誤卻完全一樣」，通常代表修改根本沒被載入。</p>
+<h3>這次真正發現的事</h3>
+<p>新 checkpoint 聽起來是對的，只有興奮語氣偏平。<code>train.list</code> 共 94 行：81 陳述、10 疑問，感嘆只有 2。不是模型不會興奮，是資料裡幾乎沒有興奮可學。下一批補感嘆和強調，順帶補 phoneme 盲點：パ行半濁音、拗音（にゃ／みゅ／ひょ）、外來語音素（fa／fi／fo／wi）。</p>
+<h3>結論</h3>
+<ul>
+<li>舊資料突然失效時，先用它檢查 pipeline 狀態，再回頭重寫資料。</li>
+<li>Transcript 必須和音檔一一對應：實際說了什麼，就照實寫什麼。</li>
+<li>情緒範圍首先是 dataset 的性質，之後才是模型的能力。</li>
+</ul>
+<p><b>邊界：</b>刪 R14 和 clean rebuild 一起完成，單看最後一次分不出功勞；乾淨的證據在失敗那邊——B 系列沒改卻在舊中間檔案下照崩，定罪的是狀態。n = 1，「聽起來對了」仍是耳朵的判定。</p>
+<p><em>Cache 不會說謊。它只是一直回答上一次的問題。</em></p>
+<p>—— 記錄：飼養員（2026-09-06）</p>

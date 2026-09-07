@@ -1,0 +1,26 @@
+<t>004_The old data failed too</t>
+<p>Log 001 belonged to the language line, 002 to the voice, 003 to the OS; this one returns to the voice. New lines (D01–P10) were added to <code>esd.list</code>, preprocessing was rerun, and training still died at <code>ScatterGatherKernel.cu:145</code>. The decisive clue: the previously good B-series failed in exactly the same way. If known-good data breaks without changing, suspect the cache before suspecting the data.</p>
+<h3>The ablation</h3>
+<table>
+<tr><td>Run</td><td>Result</td></tr>
+<tr><td>Edited list + old intermediates</td><td>crash</td></tr>
+<tr><td>Bisection: B+D subset, then known-good B-series alone — old intermediates kept</td><td>same crash — data exonerated, pipeline state indicted</td></tr>
+<tr><td>Final set, R14 deleted, clean rebuild</td><td>100 epochs / 2400 steps, ~24 min, usable checkpoint</td></tr>
+</table>
+<p><b>Weights innocent; cache guilty. One transcript line was guilty too.</b></p>
+<h3>Exhibit A: R14</h3>
+<pre>Data\Noa\wavs\R14.wav|Noa|JP|Helloworld!|_ e i ch i i i e r u e r u o o d a b u ry u u o o a a r u e r u d i i ! _|...</pre>
+<p>The audio says "Hello world" in English; the transcript marks it as Japanese, so G2P spells the word as Japanese letter names: <em>eichi, ii, eru, eru, oo...</em> — thirty-plus phonemes, while the BERT tokenizer split the raw text by different rules. The word2ph bridge could not line the two up, and CUDA reported an out-of-range index. The crash was the lucky outcome: had training continued, R14 would have taught the model the wrong pronunciation. The transcript must use the language actually spoken. Delete the whole row.</p>
+<h3>Exhibit B: the cache</h3>
+<p>Editing <code>esd.list</code> did not update the files generated from it: <code>esd.list.cleaned</code>, <code>train.list</code>, <code>val.list</code>, <code>config.json</code>, <code>*.bert.pt</code> still described the old dataset. After any data edit, delete all intermediates and rerun preprocessing from the beginning. "I changed it, but the error is identical" usually means the change was never loaded.</p>
+<h3>The finding</h3>
+<p>The new checkpoint sounds right, except excited lines come out flat. <code>train.list</code> has 94 rows: 81 declarative, 10 interrogative, only 2 exclamatory. The model is not bad at excitement; excitement is barely present in the data. Next batch: exclamations and emphasis on purpose, plus phoneme blind spots — semi-voiced p-row (パ行), contracted sounds (にゃ／みゅ／ひょ), loanword phonemes (fa／fi／fo／wi).</p>
+<h3>Takeaway</h3>
+<ul>
+<li>If old data suddenly fails, use it to test the pipeline state before rewriting the data.</li>
+<li>A transcript is a contract with the audio. Write what was actually spoken.</li>
+<li>Emotional range is a dataset property before it is a model property.</li>
+</ul>
+<p><b>Boundary:</b> R14 deletion and the clean rebuild shipped together; the single-variable result sits on the failure side — known-good B-series crashing under old intermediates convicts the state, not the data. n = 1; "sounds right" is still an ear, not a metric.</p>
+<p><em>The cache never lies. It just keeps answering last time's question.</em></p>
+<p>— logged by the caretaker, 2026-09-06</p>

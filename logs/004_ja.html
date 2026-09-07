@@ -1,0 +1,27 @@
+<t>004_古いデータまで落ちた</t>
+<p>001 は言語、002 は音声、003 は OS の話でした。今回は音声に戻ります。<code>esd.list</code> に新しい録音（D01–P10）を追加し、preprocessing もやり直しましたが、学習は <code>ScatterGatherKernel.cu:145</code> で停止。決め手は、以前は通っていた B シリーズまで同じように落ちたことでした。データを変えていないのに壊れたなら、まず cache を疑うべきでした。</p>
+<h3>切り分け</h3>
+<table>
+<tr><td>実行内容</td><td>結果</td></tr>
+<tr><td>リストだけ変更し、古い中間ファイルを使用</td><td>クラッシュ</td></tr>
+<tr><td>二分探索：B+D、次に既知の正常な B シリーズのみ――古い中間ファイルのまま</td><td>同じクラッシュ――データは無罪、疑いは pipeline の状態へ</td></tr>
+<tr><td>R14 を削除し、全中間ファイルを再構築</td><td>100 epochs / 2400 steps、約24分、使用可能な checkpoint</td></tr>
+</table>
+<p><b>重みは無罪。犯人は cache。ついでに transcript にも一行、前科がありました。</b></p>
+<h3>Exhibit A：R14</h3>
+<pre>Data\Noa\wavs\R14.wav|Noa|JP|Helloworld!|_ e i ch i i i e r u e r u o o d a b u ry u u o o a a r u e r u d i i ! _|...</pre>
+<p>音声は英語の「Hello world」。ところが transcript は JP として登録していたため、G2P は日本語のアルファベット読み――<em>eichi、ii、eru、eru、oo……</em>――に変換しました。phoneme は三十個以上に膨らみ、BERT tokenizer は別の規則で原文を分割。word2ph が両者を対応づけられず、CUDA が index 範囲外を報告しました。クラッシュはむしろ幸運でした。学習が進んでいたら、間違った発音を覚えさせていたはずです。Transcript には実際に話した言語を書くこと。R14 は行ごと削除です。</p>
+<h3>Exhibit B：cache</h3>
+<p><code>esd.list</code> を直しても、<code>esd.list.cleaned</code>、<code>train.list</code>、<code>val.list</code>、<code>config.json</code>、<code>*.bert.pt</code> までは更新されませんでした。データを編集したら中間ファイルをすべて削除し、preprocessing を最初からやり直します。「直したのに、エラーがまったく同じ」なら、その修正が読み込まれていない可能性が高いです。</p>
+<h3>今回わかったこと</h3>
+<p>新しい checkpoint の音は問題ありませんが、興奮した台詞はまだ平坦でした。<code>train.list</code> は 94 行：平叙文 81、疑問文 10、感嘆文はわずか 2。そもそも学ぶ材料がほとんどなかったのです。次の録音では感嘆と強調を増やし、パ行の半濁音、拗音（にゃ／みゅ／ひょ）、外来語音（fa／fi／fo／wi）も補います。</p>
+<h3>まとめ</h3>
+<ul>
+<li>古いデータまで突然落ちたら、書き直す前に pipeline の状態を確認します。</li>
+<li>Transcript は音声との約束です。実際に話した内容と言語を、そのまま記録します。</li>
+<li>感情表現の幅は、まず dataset の問題であって、モデルの問題とは限りません。</li>
+</ul>
+<p><b>境界：</b>R14 の削除と clean rebuild は同時に行ったため、この一回だけでは切り分けられません。単一要因の結果は失敗側――B シリーズが古い中間ファイルの下で落ちたことが、状態を有罪にしました。n = 1。「自然に聞こえる」はまだ耳による判定です。</p>
+<p><em>Cache は嘘をつかない。ただ、前回の質問に答え続けているだけだ。</em></p>
+<p>— 記録：世話係</p>
+<p>  2026-09-06</p>

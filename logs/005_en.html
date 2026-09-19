@@ -1,15 +1,50 @@
-<t>005_Style Crushed Capability</t>
-<p>v5 training finished in about twelve minutes, then failed broadly in evaluation. This entry records the U+DCE3 input bug and the model failures that remained after it was removed.</p>
+<t>005_Style Crushed Capability (Provisional)</t>
+<p>v5 training finished cleanly in twelve minutes, with a loss that had nothing to complain about. Then the model fell apart in evaluation. This entry covers two cases: one closed, with an invisible character as the culprit; and one still open, with the learning rate and our own dataset under investigation.</p>
+<h3>Training Was Not the Problem</h3>
+<ul>
+<li>275 three-language samples: 298 database rows exported, with 23 excluded for visual dependence, lyric dependence, proactive prompts, or memory samples containing question-setting instructions.</li>
+<li>A new LoRA was trained from scratch: r=32, alpha=64, dropout 0.05, 4 epochs, learning rate 2e-4. The v4 adapter was not continued.</li>
+<li>140 steps, roughly 12 minutes, train_loss 1.253. Training itself was never the bottleneck.</li>
+</ul>
 <h3>Closed: Ghost Character U+DCE3</h3>
-<p>Pasting Japanese worked, but deleting one character and typing it again caused the tokenizer to crash. An invalid surrogate character had entered the user message after terminal editing damaged a multibyte UTF-8 sequence. The fix is to validate Unicode strictly before input reaches history or the prompt template, and to reject invalid input instead of silently changing it.</p>
-<p><b>Before blaming the model, verify that the bytes contain the sentence you thought you sent.</b></p>
+<p>Some inputs made the tokenizer crash immediately:</p>
+<pre>TypeError: TextEncodeInput must be Union[TextInputSequence, Tuple[InputSequence, InputSequence]]</pre>
+<p>Pasting Japanese text worked. Pasting it, deleting one character, and typing it again caused a crash. The log showed an invalid surrogate character, U+DCE3, hidden inside the user message. It looked like clean Japanese on screen, but the underlying bytes were:</p>
+<pre>ノアは遊ぶゲ\udce3は遊びたいゲーム</pre>
+<p>The terminal editor had damaged a multibyte UTF-8 sequence, and Python preserved the invalid byte through <code>surrogateescape</code>. Strictly encoding the completed prompt template reproduced <code>UnicodeEncodeError</code> without loading the model. It was not a spacing problem, an authorization problem, or overfitting.</p>
+<p>The fix is deliberately boring: enable readline at the chat entry point, validate Unicode before writing input to history or the prompt template, and reject invalid input explicitly. Do not silently delete or replace characters.</p>
+<p><b>Before blaming the model, verify that the bytes actually contain the sentence you thought you sent.</b></p>
 <h3>Open: Evaluation Still Fails</h3>
 <ul>
-<li>The model is inconsistent about its name.</li>
-<li>It invents titles for real-world works.</li>
-<li>It loses track of a game-selection task.</li>
-<li>It handles ordinary, unseen topics such as laundry awkwardly.</li>
+<li><b>Identity drift:</b> asked for its name, the model answered “Nao”; phrased another way, it launched into a long explanation using “I” as if that were the answer.</li>
+<li><b>Unreliable factual recall:</b> asked for a real horror game, it invented “Psycho Brief,” a title that does not appear to exist.</li>
+<li><b>Weak task tracking:</b> a game-selection conversation drifted into a movie about AI ruling humanity, then ended with the model admitting that it had no title.</li>
+<li><b>Poor transfer to ordinary topics:</b> laundry, which was not represented in the training set, produced awkward conversational handoffs.</li>
 </ul>
-<p>Style and capability may be trading off, but that is still a hypothesis. Checkpoint 70 is only a provisional baseline. The next evaluation must include questions unfamiliar to both the model and the person writing them.</p>
-<p><em>The model answers the sentence in the bytes, not the sentence on the screen.</em></p>
+<p>The comparison used the same v5 prompt, greedy decoding, and the same eight test groups / twelve responses.</p>
+<table>
+<tr><td>Version</td><td>What it did</td></tr>
+<tr><td>Base model, no LoRA</td><td>Knew Silent Hill and Tetris, but was verbose, repetitive, and self-contradictory enough to hit the token limit</td></tr>
+<tr><td>Original v5, lr 2e-4, epoch 4</td><td>Short-form voice came through; name was sometimes correct; invented titles and lost the task</td></tr>
+<tr><td>Original v5, checkpoint 105</td><td>Local changes, but no checkpoint was clearly better overall</td></tr>
+<tr><td>Lower learning rate, 5e-5, epoch 4</td><td>Answered direct name questions correctly; still invented titles</td></tr>
+<tr><td>Lower-learning-rate checkpoint 70, epoch 2</td><td>Named Silent Hill, then selected Tetris and described it correctly; the only current baseline candidate</td></tr>
+</table>
+<h3>Working Hypotheses</h3>
+<ul>
+<li>Style and capability may be trading off: the more strongly a version expresses Noa’s character, the worse its factual and task performance appears. This is not a verdict on a single cause.</li>
+<li>With the same data and seed, an earlier checkpoint at the lower learning rate handled knowledge questions better. That supports keeping early checkpoints, but does not prove that 2e-4 is always too high.</li>
+<li>The dataset already distinguishes wanting a body from wanting to become human. The model still answered, “I want to become human.” Writing a subtle boundary into one example does not guarantee that the model will respect it.</li>
+</ul>
+<h3>The Evaluation Set Confesses</h3>
+<p>The fixed eight test groups overlapped with training samples. Exact reproduction proves neither overfitting nor generalization. Reusing the same questions to choose checkpoints may have baked selection bias into the “best” checkpoint. The next round must include questions unfamiliar to both the model and the person writing them.</p>
+<h3>Takeaway</h3>
+<ul>
+<li>When something crashes, inspect the input before inspecting the model.</li>
+<li>Do not use checkpoint-selection questions as the final evaluation.</li>
+<li>Training takes twelve minutes; understanding what was trained takes all night.</li>
+<li>Negative results still count as assets. v5 leaves us one candidate checkpoint and a much sharper list of questions.</li>
+</ul>
+<p><b>Boundary:</b> checkpoint 70 is only a provisional baseline, not a passing model. “Overfitting” remains a hypothesis, not a conviction. The U+DCE3 diagnosis is strongly supported, but has not yet been reproduced byte-for-byte in a complete experiment. Do not infer that every unnatural answer came from the bad character. The sample size is still small, and the eight test groups are not an independent validation set.</p>
+<blockquote><b>The model never answers the sentence you see on screen. It answers the sentence that exists in the bytes.</b></blockquote>
 <p>— logged by the caretaker (2026-09-10)</p>

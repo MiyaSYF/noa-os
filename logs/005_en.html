@@ -1,0 +1,15 @@
+<t>005_Style Crushed Capability</t>
+<p>v5 training finished in about twelve minutes, then failed broadly in evaluation. This entry records the U+DCE3 input bug and the model failures that remained after it was removed.</p>
+<h3>Closed: Ghost Character U+DCE3</h3>
+<p>Pasting Japanese worked, but deleting one character and typing it again caused the tokenizer to crash. An invalid surrogate character had entered the user message after terminal editing damaged a multibyte UTF-8 sequence. The fix is to validate Unicode strictly before input reaches history or the prompt template, and to reject invalid input instead of silently changing it.</p>
+<p><b>Before blaming the model, verify that the bytes contain the sentence you thought you sent.</b></p>
+<h3>Open: Evaluation Still Fails</h3>
+<ul>
+<li>The model is inconsistent about its name.</li>
+<li>It invents titles for real-world works.</li>
+<li>It loses track of a game-selection task.</li>
+<li>It handles ordinary, unseen topics such as laundry awkwardly.</li>
+</ul>
+<p>Style and capability may be trading off, but that is still a hypothesis. Checkpoint 70 is only a provisional baseline. The next evaluation must include questions unfamiliar to both the model and the person writing them.</p>
+<p><em>The model answers the sentence in the bytes, not the sentence on the screen.</em></p>
+<p>— logged by the caretaker (2026-09-10)</p>

@@ -1,0 +1,56 @@
+<t>006_A local 4B model played a real game, and the game accepted the move</t>
+<p>On 2026-09-20 a locally hosted Qwen3.5-4B (with a LoRA adapter) read live state from Luck be a Landlord v1.2.24, chose one of the legal options, and the game accepted it. The game was an isolated copy of the Steam build with a small bridge injected. There was no mock, no hardcoded rule, no coordinate clicking, and nobody pressing a button on the popup.</p>
+<pre>choice          : shiny_pebble
+speech          : キラキラ石でいいや。   (roughly: "A shiny rock will do.")
+mood            : happy
+source          : model
+model latency   : 5.428 s
+fallback_reason : null
+decide accepted : true</pre>
+<p>The full chain:</p>
+<pre>LBAL v1.2.24 (isolated copy) + injected bridge
+→ local TCP, UTF-8, one JSON object per line
+→ Python orchestrator
+→ local HTTP model service (WSL, GPU)
+→ decision_id / choice / speech / mood
+→ orchestrator re-validation
+→ bridge resolve_event(choice)
+→ game accepts the choice and returns to idle</pre>
+<h3>What failed first</h3>
+<p><b>1. Screen coordinates as an interface.</b> Clicking could press buttons but carried no state. Candidate options, event IDs and the board were not recoverable from pixels, and window position, resolution and animation timing broke it. Abandoned as the main path.</p>
+<p><b>2. The decompiled project and a generic mod loader.</b> The decompiled Godot 3.4.4 project never ran in the editor. That was known early, and the first decision, to stop chasing it and keep it as read-only evidence, was correct. The mistake came later: re-decompiling, then downgrading a mod loader (v6.3.0, built for Godot 3.5) onto a 3.4.4 custom build. Each fix exposed the next error:</p>
+<pre>Time singleton missing
+ProjectSettings global class info missing
+PoolStringArray API mismatch
+class_name / dependent scripts not registering</pre>
+<p>The actual requirement was to open a local port and call two in-game functions. The fix was to keep what had already been proven (the <code>override.cfg</code> injection and loose-script loading), write a minimal bridge that uses only native 3.4.4 APIs, and replace WebSocket with the engine's raw TCP.</p>
+<h3>Gates, each with its own evidence</h3>
+<table>
+<tr><td>Stage</td><td>What it proved</td></tr>
+<tr><td>S1 injection</td><td>Bridge present in the original runtime; original PCK SHA-256 unchanged.</td></tr>
+<tr><td>S2 handshake</td><td>hello, ping/pong, heartbeat. <code>SceneTree.paused</code> was false while sitting in the menu, which corrected an earlier guess.</td></tr>
+<tr><td>S3 read-only state</td><td>idle → busy → event_pending; coins 1 → 0 → 5; rent [25, 5] → [25, 4].</td></tr>
+<tr><td>S4A / S4A5 first write</td><td>One write only: <code>spin</code>. Options are read from the popup at runtime (<code>popup.emails[0].type</code>, <code>popup.cards[].data.type</code>, <code>popup.buttons[].args[0]</code>), so the model chooses from an allowlist instead of guessing.</td></tr>
+<tr><td>S4B safe decide</td><td><code>decision_id</code> is a one-time token. All five rejection gates fired: choice not in options, stale id, duplicate request, already resolved, UI not ready. A valid choice executed exactly once.</td></tr>
+<tr><td>S4C coverage</td><td>175 states, 155 valid decisions, 12 event types. 20 transient read errors (popup animation, controls not yet active) all recovered on later samples.</td></tr>
+<tr><td>S4D reconnect</td><td>One real WinError 10053 disconnect, reconnect, and node rebinding across a new run. Not a long-run soak.</td></tr>
+<tr><td>S4E deterministic loop</td><td>No LLM, rule-based: 75.3 s, 44 spins, 67/67 decisions accepted, 6 rents paid, final coins/rent 257/375, terminal <code>game_over</code>, 0 reconnects, 0 protocol errors.</td></tr>
+</table>
+<p>S4E also logged 149 <code>spin_cooldown</code> rejections. The safety gate was correct and the client was retrying too aggressively, so the V2 orchestrator got a 1.25 s backoff.</p>
+<h3>Data semantics that had to be proven</h3>
+<ul>
+<li><code>floor</code> is the chosen difficulty, not in-run progress. <code>landlord_hp</code> of 750, 1000 and 1500 are all legitimate.</li>
+<li><code>queued_increase = -1</code> is a signed delta waiting to merge into coins (here, the spin cost), not an error sentinel.</li>
+<li>Coins reached billions in historical long runs, so nothing on the path can be 32-bit. Godot 3's <code>JSON.parse</code> reads inbound numbers as doubles, which loses integer precision above 2^53 − 1. The bridge currently only emits JSON and Python parses it, and no precision loss has been observed. If large integers are ever sent inward, they must be decimal strings. Unresolved.</li>
+<li>The full effects/items/destroyed history cannot go into the prompt as is.</li>
+</ul>
+<h3>Infrastructure failures</h3>
+<p><b>Launcher.</b> A Windows path passed through <code>wslpath</code> lost its backslashes (<code>C:\dir\sub</code> became <code>C:dirsub</code>), nothing was returned, and <code>.Trim()</code> on null crashed. The follow-up fix used C-style quote escaping inside PowerShell and hit a ParserError. Stage 3 V2 was rewritten instead of patched a third time: CMD as the main launcher, no <code>wslpath</code>, explicit timeout, default fallback, output validation, spin backoff.</p>
+<p><b>Network.</b> Model loading hung for 120 s on a Hugging Face request. The GPU was fine (RTX 5070, CUDA, BF16 and Xformers all detected). The real cause was WSL's NAT mode seeing the Windows localhost proxy but being unable to use it. An offline hotfix was ready, but the long-term fix went in first: mirrored networking with <code>autoProxy</code>, <code>dnsTunneling</code> and <code>firewall</code> enabled. Afterwards the proxy warning was gone and 723/723 weights loaded in 5 s.</p>
+<h3>The first real decision</h3>
+<p>The first contract test against the model service returned <code>choice: gambler</code>, mood <code>excited</code>, with no warnings, but took 20.469 s. That just exceeded the orchestrator's 20 s timeout, so it was raised to 45 s for acceptance. Once warm, the decision took 5.428 s.</p>
+<p>The live event was <code>add_tile</code> with options <code>shiny_pebble</code>, <code>goose</code>, <code>bee</code>, <code>skip</code> (default <code>skip</code>), 5 coins, 1 spin, and rent 25 due in 4 spins. The model returned <code>shiny_pebble</code>. The orchestrator confirmed that the <code>decision_id</code> matched, the choice was in the options, the speech was non-empty, the mood was in the allowlist, and there was no timeout and no fallback. The bridge then reported <code>accepted = true</code> and the state moved from <code>event_pending</code> to <code>idle</code>.</p>
+<p>Stages 1 to 3 pass. Voice and avatar are not connected yet.</p>
+<p><b>Boundary:</b> the model-driven part of this run is one accepted decision; the 67-decision run was rule-based. Board-target selection, unique symbol IDs and right-click-disabled state are not in the protocol yet. There has been no long-run memory soak. TTS audio, lip sync and mood-to-avatar are not wired in. Cost, latency and fallback rate over a full model-driven run are unmeasured.</p>
+<p><em>One accepted line took nine gates to hear.</em></p>
+<p>— logged by the caretaker (2026-09-20)</p>

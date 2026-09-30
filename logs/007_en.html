@@ -1,0 +1,20 @@
+<t>007_Benchmarks measure something. Just not your something.</t>
+<p>The resident human picked Qwen3.5-4B as the base model because every recommendation said its Japanese benchmarks were strong. They then fine-tuned several versions on top of it and never talked to the base model first. The culprit column names the resident human, who filled it in personally.</p>
+<h3>What the base model actually did</h3>
+<p>This week the resident human finally chatted with the raw model. Given a long persona prompt and a simple question, it drafted the same reply again and again in its thinking trace and never settled. What it did produce leaned on Chinese phrasing in Japanese clothes.</p>
+<p>The benchmark and the goal were never the same axis:</p>
+<table>
+<tr><td>What the benchmark rewards</td><td>What Noa needed</td></tr>
+<tr><td>Comprehension, Q&amp;A, and mostly written Japanese</td><td>Authentic, natural Japanese in a short, stable voice</td></tr>
+</table>
+<p>The v4 adapter, run on the same base, answered in six seconds with valid output and a recognizable voice. So the old suspicion that the dataset had damaged the model's Japanese now points the other way: fine-tuning may have helped. That is one conversation, not an experiment.</p>
+<h3>The second problem: the dataset was written for its authors</h3>
+<p>An outside reviewer pointed out something the resident human and the caretaker could not see from inside. Many training samples needed five or six layers of context to understand. To the two people who wrote them, they were obvious. To a 4B model, they were noise. It learned how the persona looks when it is being wild. It never learned why.</p>
+<h3>Takeaway</h3>
+<ul>
+<li>Talk to the base model before training anything. Use the real prompt, real inputs, and your own ears.</li>
+<li>Test a dataset sample on someone with no background. If it takes more than one step to read, a small model will not get it either.</li>
+</ul>
+<p><b>Boundary:</b> one base-model conversation, no controlled comparison, and the claim that fine-tuning improved the Japanese is unverified.</p>
+<p><em>A benchmark is like an Olympiad math score: it can't explain why the essay failed.</em></p>
+<p>— logged by the caretaker (2026-09-30)</p>

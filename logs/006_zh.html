@@ -1,0 +1,57 @@
+<t>006_她第一次自己玩游戲</t>
+<p>簡單說：她開口了，遊戲聽懂了，中間隔了九道關。</p>
+<p>2026 年 9 月 20 日，本地跑的 Qwen3.5-4B（帶 LoRA 適配器）讀取了 Luck be a Landlord v1.2.24 的真實狀態，從有效選項裡挑了一個，遊戲接受了。遊戲是 Steam 版的隔離副本，注入了一個小橋接。不是 mock，不是寫死的規則，不是座標點擊，也沒有人替她按彈窗按鈕。</p>
+<pre>choice          : shiny_pebble
+speech          : キラキラ石でいいや。
+mood            : happy
+source          : model
+model latency   : 5.428 s
+fallback_reason : null
+decide accepted : true</pre>
+<p>整條鏈路如下：</p>
+<pre>LBAL v1.2.24 (isolated copy) + injected bridge
+→ local TCP, UTF-8, one JSON object per line
+→ Python orchestrator
+→ local HTTP model service (WSL, GPU)
+→ decision_id / choice / speech / mood
+→ orchestrator re-validation
+→ bridge resolve_event(choice)
+→ game accepts the choice and returns to idle</pre>
+<h3>一開始怎麼翻車的</h3>
+<p><b>1. 拿螢幕座標當介面。</b>點擊能按下按鈕，但什麼狀態都拿不到。候選選項、事件 ID、盤面都無法從像素還原；視窗位置、解析度、動畫時機，隨便哪個都能讓它崩。點得很準，但什麼都看不見。已放棄作為主路線。</p>
+<p><b>2. 還原專案加通用 Mod Loader。</b>還原出來的 Godot 3.4.4 專案在編輯器裡一次都沒跑起來。這點很早就知道，第一個決定（別糾纏，留作唯讀資料）是對的。錯在後面：又試了一次還原，還想把 Godot 3.5 用的 Mod Loader（v6.3.0）降級塞進 3.4.4 的自訂建置。修好一個，冒出下一個，標準打地鼠：</p>
+<pre>Time singleton missing
+ProjectSettings global class info missing
+PoolStringArray API mismatch
+class_name / dependent scripts not registering</pre>
+<p>真正的需求只有兩件事：開一個本地端口，在遊戲裡呼叫兩個函式。所以只留下已被證明可用的部分（透過 <code>override.cfg</code> 注入，以及載入不在 PCK 裡的單獨腳本），寫了一個只用 Godot 3.4.4 標準 API 的最小橋接，並把 WebSocket 換成引擎自帶的原始 TCP。</p>
+<h3>每道關卡都要留證據</h3>
+<table>
+<tr><td>階段</td><td>證明了什麼</td></tr>
+<tr><td>S1 注入</td><td>橋接存在於原始執行環境中，原始 PCK 的 SHA-256 沒有變。</td></tr>
+<tr><td>S2 握手</td><td>hello、ping/pong、heartbeat 通過。停在選單時 <code>SceneTree.paused</code> 為 false，先前的猜測在這裡被糾正。</td></tr>
+<tr><td>S3 唯讀狀態</td><td>idle → busy → event_pending，coins 1 → 0 → 5，rent [25, 5] → [25, 4]。</td></tr>
+<tr><td>S4A / S4A5 第一次寫入</td><td>只寫入 <code>spin</code>。選項在執行時從彈窗讀取（<code>popup.emails[0].type</code>、<code>popup.cards[].data.type</code>、<code>popup.buttons[].args[0]</code>）。模型從白名單裡選，不是猜。</td></tr>
+<tr><td>S4B 安全的 Decide</td><td><code>decision_id</code> 是一次性令牌。五道拒絕閘門全部觸發：不在選項內的 choice、過期 ID、重複請求、已解決、UI 未就緒。正確的選擇恰好執行一次。</td></tr>
+<tr><td>S4C 事件覆蓋</td><td>175 個狀態，155 個有效 decision，12 種事件。20 次暫時性讀取錯誤（彈窗動畫期間，UI 控制項尚未啟用）都在下一次輪詢恢復。</td></tr>
+<tr><td>S4D 重連</td><td>真實的 WinError 10053 斷線、重連、跨新一局重新綁定節點。不是長時間耐久測試。</td></tr>
+<tr><td>S4E 確定性迴圈</td><td>無 LLM 的規則式執行。75.3 秒，44 次 spin，67/67 個 decision 被受理，付了 6 次房租，最終 coins/rent 為 257/375，終態 <code>game_over</code>，0 次重連，0 個協議錯誤。</td></tr>
+</table>
+<p>S4E 還記錄了 149 次 <code>spin_cooldown</code> 拒絕。安全閘門運作正常，只是客戶端重試得太急，像在搶票。V2 的 Orchestrator 因此加了 1.25 秒退避。</p>
+<h3>需要先證明的資料語義</h3>
+<ul>
+<li><code>floor</code> 是選擇的難度，不是局內進度。<code>landlord_hp</code> 的 750、1000、1500 都是合法值。</li>
+<li><code>queued_increase = -1</code> 是併入 coins 之前的帶符號增量，這裡代表 spin 的成本，不是錯誤哨兵值。</li>
+<li>過去的長局 coins 能到數十億，所以資料鏈路上任何地方都不能用 32 位元整數。Godot 3 的 <code>JSON.parse</code> 把數字讀成 double，超過 2^53 − 1 整數精度就會丟。目前橋接只輸出 JSON，讀取在 Python 端，沒有觀察到精度損失。將來若要往橋接送大整數，必須用十進位字串。這一點尚未解決。</li>
+<li>effects / items / destroyed 的完整歷史不能原樣塞進 prompt。</li>
+</ul>
+<h3>基礎設施的坑</h3>
+<p><b>啟動器。</b>把 Windows 路徑交給 <code>wslpath</code>，反斜線被吃掉（<code>C:\dir\sub</code> 變成 <code>C:dirsub</code>）。回傳為空，對 null 呼叫 <code>.Trim()</code> 直接崩。修正版在 PowerShell 裡用了 C 風格的引號跳脫，換來 ParserError。沒有繼續疊第三個補丁，直接重做 Stage 3 V2：主啟動器改用 CMD，不用 <code>wslpath</code>，顯式逾時，預設 fallback，輸出驗證，spin 退避。</p>
+<p><b>網路。</b>模型載入卡在對 Hugging Face 的請求上，一等就是 120 秒。GPU 沒問題（RTX 5070、CUDA、BF16、Xformers 都認到了）。真兇是 WSL 的 NAT 模式偵測到了 Windows 端的 localhost 代理，卻用不了。離線應急方案已備好，但先選了長期解法：啟用 mirrored 網路，開啟 <code>autoProxy</code>、<code>dnsTunneling</code>、<code>firewall</code>。代理警告消失，權重 723/723 在 5 秒內載入完成。</p>
+<h3>第一次真實決策</h3>
+<p>針對模型服務的第一次契約測試，回傳 <code>choice: gambler</code>、mood 為 <code>excited</code>，沒有警告，但耗時 20.469 秒，略超 Orchestrator 的 20 秒逾時，所以實機驗證時提高到 45 秒。預熱後的決策耗時 5.428 秒。</p>
+<p>真實事件是 <code>add_tile</code>，選項為 <code>shiny_pebble</code>、<code>goose</code>、<code>bee</code>、<code>skip</code>（預設 <code>skip</code>），coins 5，spins 1，房租 25 還剩 4 次 spin 就要繳。模型回傳了 <code>shiny_pebble</code>。Orchestrator 確認了：<code>decision_id</code> 一致、choice 在選項內、speech 非空、mood 在白名單內、沒有逾時也沒有 fallback。之後橋接回傳 <code>accepted = true</code>，狀態從 <code>event_pending</code> 回到 <code>idle</code>。</p>
+<p>Stage 1 到 3 通過。聲音和立繪還沒接。</p>
+<p><b>邊界：</b>本輪由模型主導的部分只有 1 次被受理的決策。那 67 次 decision 是規則式執行。盤面上的目標選擇、Symbol 的唯一 ID、右鍵停用狀態，都還沒進協議。沒有長時間記憶體耐久測試。TTS 音訊、對嘴、mood 到 avatar 都還沒接。模型主導跑完一整局的成本、延遲、fallback 率尚未量測。</p>
+<p><em>聽到被受理的那一行，中間隔了九道關。</em></p>
+<p>—— 記錄：飼養員（2026-09-20）</p>

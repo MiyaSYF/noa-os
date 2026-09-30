@@ -1,0 +1,56 @@
+<t>006_ローカルの 4B モデルが実際のゲームをプレイし、ゲームがその選択を受理しました</t>
+<p>2026年9月20日、ローカルで動かしている Qwen3.5-4B（LoRA アダプタ付き）が、Luck be a Landlord v1.2.24 の実際の状態を読み取り、有効な選択肢の中から一つを選び、ゲームがそれを受け付けました。ゲームは Steam 版を隔離して複製したもので、小さなブリッジを注入しています。モックでも、ハードコードされたルールでも、座標クリックでもありません。ポップアップのボタンを誰かが代わりに押したわけでもありません。</p>
+<pre>choice          : shiny_pebble
+speech          : キラキラ石でいいや。
+mood            : happy
+source          : model
+model latency   : 5.428 s
+fallback_reason : null
+decide accepted : true</pre>
+<p>経路の全体は次のとおりです。</p>
+<pre>LBAL v1.2.24 (isolated copy) + injected bridge
+→ local TCP, UTF-8, one JSON object per line
+→ Python orchestrator
+→ local HTTP model service (WSL, GPU)
+→ decision_id / choice / speech / mood
+→ orchestrator re-validation
+→ bridge resolve_event(choice)
+→ game accepts the choice and returns to idle</pre>
+<h3>最初にうまくいかなかったこと</h3>
+<p><b>1. 画面座標をインターフェースにしたこと。</b>クリックでボタンは押せますが、状態は何も得られません。候補の選択肢、イベント ID、盤面はピクセルから復元できず、ウィンドウ位置、解像度、アニメーションのタイミングですぐに破綻しました。主経路としては破棄しています。</p>
+<p><b>2. 復元プロジェクトと汎用 Mod Loader。</b>復元した Godot 3.4.4 のプロジェクトは、エディタでは一度も動きませんでした。これは早い段階から分かっており、最初の判断、つまり「深追いせず、読み取り専用の資料として残す」は正しいものでした。間違いはその後です。再び復元を試み、さらに Godot 3.5 向けの Mod Loader（v6.3.0）を 3.4.4 のカスタムビルドへダウングレードして載せようとしました。一つ直すと、次のエラーが現れました。</p>
+<pre>Time singleton missing
+ProjectSettings global class info missing
+PoolStringArray API mismatch
+class_name / dependent scripts not registering</pre>
+<p>本当の要件は、ローカルポートを一つ開き、ゲーム内の関数を二つ呼ぶことだけでした。そこで、すでに動作が証明されていた部分（<code>override.cfg</code> による注入と、PCK に含まれない単体スクリプトの読み込み）だけを残し、Godot 3.4.4 標準の API だけを使う最小限のブリッジを書き、WebSocket をエンジン標準の生の TCP に差し替えました。</p>
+<h3>関門ごとに証拠を取る</h3>
+<table>
+<tr><td>ステージ</td><td>示したこと</td></tr>
+<tr><td>S1 注入</td><td>元のランタイム上でブリッジが存在し、元の PCK の SHA-256 は変わっていませんでした。</td></tr>
+<tr><td>S2 ハンドシェイク</td><td>hello、ping/pong、heartbeat が通りました。メニューにいる間、<code>SceneTree.paused</code> は false でした。以前の推測はここで訂正されました。</td></tr>
+<tr><td>S3 読み取り専用の状態</td><td>idle → busy → event_pending、coins 1 → 0 → 5、rent [25, 5] → [25, 4]。</td></tr>
+<tr><td>S4A / S4A5 初めての書き込み</td><td>書き込みは <code>spin</code> のみ。選択肢は実行時にポップアップから読み取ります（<code>popup.emails[0].type</code>、<code>popup.cards[].data.type</code>、<code>popup.buttons[].args[0]</code>）。モデルは推測ではなく、許可リストの中から選びます。</td></tr>
+<tr><td>S4B 安全な Decide</td><td><code>decision_id</code> は使い捨てのトークンです。拒否ゲート五つがすべて作動しました：選択肢にない choice、期限切れの ID、重複リクエスト、解決済み、UI 未準備。正しい選択はちょうど一度だけ実行されました。</td></tr>
+<tr><td>S4C イベントの網羅</td><td>175 件の状態、155 件の有効な decision、12 種類のイベント。一時的な読み取りエラー 20 件（ポップアップのアニメーション中で、UI コントロールがまだ有効でない時点）は、すべて次のサンプリングで解消しました。</td></tr>
+<tr><td>S4D 再接続</td><td>実際の WinError 10053 による切断、再接続、新しいランをまたいだノードの再バインド。長時間の耐久試験ではありません。</td></tr>
+<tr><td>S4E 決定論的ループ</td><td>LLM なしのルールベースです。75.3 秒、44 回のスピン、67/67 の decision を受理、6 回の家賃支払い、最終 coins/rent は 257/375、終端は <code>game_over</code>、再接続 0 回、プロトコルエラー 0 件でした。</td></tr>
+</table>
+<p>S4E では <code>spin_cooldown</code> による拒否も 149 回記録されました。安全ゲートは正しく動作しており、クライアント側のリトライの間隔が短すぎただけです。そこで V2 の Orchestrator に 1.25 秒のバックオフを入れました。</p>
+<h3>証明する必要があったデータの意味</h3>
+<ul>
+<li><code>floor</code> は選択した難易度であり、ラン内の進行度ではありません。<code>landlord_hp</code> は 750、1000、1500 のいずれも正当な値です。</li>
+<li><code>queued_increase = -1</code> は coins に合流する前の符号付きの増分で、ここではスピンのコストを表します。エラーを示す番兵値ではありません。</li>
+<li>過去の長いランでは coins が数十億に達したので、データ経路のどこにも 32 ビット整数は使えません。Godot 3 の <code>JSON.parse</code> は入力された数値を double として読むため、2^53 − 1 を超えると整数の精度が失われます。現在のブリッジは JSON を出力するだけで、読むのは Python 側です。精度の劣化は観測されていません。将来、大きな整数をブリッジへ送るなら、10進の文字列にする必要があります。この点は未解決です。</li>
+<li>effects / items / destroyed の履歴全体を、そのままプロンプトに入れることはできません。</li>
+</ul>
+<h3>基盤側のつまずき</h3>
+<p><b>ランチャー。</b>Windows のパスを <code>wslpath</code> に渡すと、バックスラッシュが消えました（<code>C:\dir\sub</code> が <code>C:dirsub</code> になります）。戻り値は空で、null に対する <code>.Trim()</code> が落ちました。その修正版は PowerShell の中で C 風の引用符エスケープを使い、ParserError になりました。三度目のパッチを重ねる代わりに、Stage 3 V2 を作り直しました。メインのランチャーは CMD、<code>wslpath</code> は不使用、タイムアウトを明示し、デフォルトのフォールバック、出力の検証、スピンのバックオフを備えています。</p>
+<p><b>ネットワーク。</b>モデルの読み込みは、Hugging Face へのリクエストで 120 秒も止まりました。GPU に問題はありませんでした（RTX 5070、CUDA、BF16、Xformers をすべて認識）。本当の原因は、WSL の NAT モードが Windows 側の localhost プロキシを認識していながら、利用できなかったことです。オフライン用の応急修正は用意済みでしたが、先に長期的な対処を選びました。ミラードネットワークを有効にし、<code>autoProxy</code>、<code>dnsTunneling</code>、<code>firewall</code> をオンにしました。するとプロキシの警告は消え、重み 723/723 が 5 秒で読み込まれました。</p>
+<h3>最初の実際の判断</h3>
+<p>モデルサービスに対する最初の契約テストは、<code>choice: gambler</code>、mood は <code>excited</code>、警告なしでしたが、所要時間は 20.469 秒でした。Orchestrator の 20 秒のタイムアウトをわずかに超えたため、実機での検証では 45 秒に引き上げました。ウォームアップ後の判断は 5.428 秒でした。</p>
+<p>実際のイベントは <code>add_tile</code> で、選択肢は <code>shiny_pebble</code>、<code>goose</code>、<code>bee</code>、<code>skip</code>（既定は <code>skip</code>）、coins 5、spins 1、家賃 25 を残り 4 スピンで支払う状況でした。モデルは <code>shiny_pebble</code> を返しました。Orchestrator は、<code>decision_id</code> が一致していること、choice が選択肢に含まれること、speech が空でないこと、mood が許可リストにあること、タイムアウトもフォールバックもないことを確認しました。その後ブリッジは <code>accepted = true</code> を返し、状態は <code>event_pending</code> から <code>idle</code> へ戻りました。</p>
+<p>ステージ 1 から 3 は合格です。声と立ち絵は、まだ接続していません。</p>
+<p><b>検証範囲と制約：</b>この回のモデル主導の部分は受理された判断 1 回のみです。67 回の decision はルールベースの実行でした。盤面上の対象選択、Symbol の固有 ID、右クリック無効の状態は、まだプロトコルに入っていません。長時間のメモリ耐久試験もありません。TTS の音声、リップシンク、mood からアバターへの接続も未実装です。モデル主導で 1 ラン通したときのコスト、レイテンシ、フォールバック率は未計測です。</p>
+<p><em>受理された一行を聞くまでに、関門は九つありました。</em></p>
+<p>— 記録：世話係（2026-09-20）</p>

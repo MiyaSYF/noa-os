@@ -1,0 +1,50 @@
+<t>008_When a Diamond Isn't a Diamond</t>
+<p>The decision model repeatedly favored two symbols for the wrong reasons: it confused a coin symbol with player currency, and interpreted a playing-card suit as a gemstone.</p>
+<p>Both issues were addressed by making the model-facing descriptions more explicit. The fixes worked in subsequent observations, although no reliable before-and-after counts were retained.</p>
+
+<h3>What happened</h3>
+<p><b>1. Coin: symbol vs. currency</b></p>
+<p>The game has two distinct concepts:</p>
+<ul>
+<li><b>Coin symbol:</b> a board symbol with a low base value and no intrinsic special effect.</li>
+<li><b>Player currency:</b> the numerical resource used to pay rent.</li>
+</ul>
+<p>Both were described using the same term, making the distinction unclear in the model's input.</p>
+<p>The initial descriptions also failed to communicate that an absent effect description meant the symbol had no intrinsic special effect. Instead, the wording could be interpreted as missing information.</p>
+<p>The rule catalog was revised to distinguish the symbol from the currency and explicitly describe its default behavior.</p>
+<p>One detail mattered: the coin symbol belongs to a group referenced by other game mechanics. Having no intrinsic effect does not mean having no possible synergy. The revised description preserved that distinction.</p>
+
+<p><b>2. Diamonds: context interference and missing semantics</b></p>
+<p>The model also showed an unexpected preference for <code>diamonds</code>, a playing-card suit represented by a red diamond-shaped symbol.</p>
+<p>The game contains two separate concepts:</p>
+<table>
+<tr><td>Identifier</td><td>Meaning</td></tr>
+<tr><td><code>diamonds</code></td><td>Playing-card suit</td></tr>
+<tr><td><code>diamond</code></td><td>Gemstone</td></tr>
+</table>
+<p>The original model-facing description only identified the first as 「ダイヤ」, without explicitly stating that it was a playing-card suit.</p>
+<p>There was another possible source of confusion. Noa's persona description used an idiom involving sparkling eyes when talking about favorite things. The model repeatedly produced remarks about shiny objects, raising the possibility that this character context influenced its evaluation of the diamond symbol.</p>
+<p>The debugging process involved two stages:</p>
+<ol>
+<li>The persona wording was revised to avoid the literal association with sparkling objects.</li>
+<li>The four playing-card suits were explicitly labeled as card symbols. When this was insufficient, the description was made more concrete: <code>ダイヤ（♢、ひし形）</code>.</li>
+</ol>
+<p>The final model-facing terminology also separated <code>Suit_Diamonds</code> from <code>Gem_Diamond</code>.</p>
+
+<h3>Changes and observations</h3>
+<ul>
+<li>Coin symbol and player currency were explicitly distinguished.</li>
+<li>Symbols without intrinsic effects were described as such, without incorrectly ruling out external synergies.</li>
+<li>Playing-card suits were identified by both category and visual shape.</li>
+<li>Persona wording and symbol descriptions were revised.</li>
+<li>Both unwanted selection tendencies stopped appearing in subsequent observations.</li>
+</ul>
+
+<h3>Engineering takeaway</h3>
+<p>Natural-language labels are not neutral identifiers. A familiar word can activate associations from unrelated parts of the context, while an omitted attribute can leave the model to infer semantics that the game never intended.</p>
+<p>Model-facing data does not need to use the same vocabulary as user-facing text. Explicit identifiers and concrete attributes can be more useful than elegant descriptions.</p>
+
+<p><b>Boundary:</b> The observations came from actual game runs, not a controlled ablation study. Persona wording and game-symbol descriptions were changed during the debugging process, so their individual contributions cannot be isolated. No reliable before-and-after selection counts were retained. The proposed influence of the persona wording on diamond interpretation remains a hypothesis, not a confirmed causal explanation.</p>
+
+<p><em>A symbol's name is not its specification.</em></p>
+<p>— logged by the caretaker (2026-10-15)</p>
